@@ -4,19 +4,20 @@ const { render } = require('ejs');
 // const date = require(__dirname + '/date.js')
 const app = express();
 const mongoose = require('mongoose');
+const _ = require("lodash");
 
 
 
 
 
 // const items =["buy Food","Cook food", "Eat food"];
-const workItems=[];
+// const workItems=[];
 
 app.set('view engine', 'ejs');
 
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
-mongoose.connect("mongodb://localhost/todolistDB",{useNewUrlParser: true , useUnifiedTopology: true});
+mongoose.connect("mongodb://localhost/todolistDB",{useNewUrlParser: true , useUnifiedTopology: true ,useFindAndModify: false });
 
 
 const ItemsSchema = {
@@ -72,15 +73,15 @@ app.get('/', function(req, res){
             
         }else{
 
+            res.render("list",{newListItem: FoundItem,listTitle: "Today"});
         }
-        res.render("list",{newListItem: FoundItem,listTitle: "Today"});
         
      });
     // res.render("list",{newListItem: items,listTitle: day});
 });
 
 app.get("/:customListName",function(req, res){
-    const customListName = req.params.customListName
+    const customListName = _.capitalize(req.params.customListName);
 
     List.findOne({name: customListName}, function(err,FoundList){
         if(!err){
@@ -129,23 +130,37 @@ app.post('/',(req, res)=>{
 
 app.post('/delete',function(req,res){
     const checkedItemId = req.body.checkbox;
+    const listname = req.body.listName;
 
-    Item.findByIdAndRemove(checkedItemId,function(err){
-        if(!err){
-            console.log("succesfully Deleted Item");
-            res.redirect('/');
-        }
-    })
+    if(listname === "Today"){
+
+        Item.findByIdAndRemove(checkedItemId,function(err){
+            if(!err){
+                console.log("succesfully Deleted Item");
+                res.redirect('/');
+            }
+        })
+    } else {
+        List.findOneAndUpdate(
+            {name:listname},
+            {$pull : {items: {_id: checkedItemId}}},
+            function(err, foundlist){
+                if(!err){
+                    res.redirect("/" + listname);
+                }
+            });
+    }
+
 });
 
 
 
 
-app.post('/work',(req, res)=>{
-    let item = req.body.newItem;
-    workItems.push(item)
-    res.redirect('/work')
-})
+// app.post('/work',(req, res)=>{
+//     let item = req.body.newItem;
+//     workItems.push(item)
+//     res.redirect('/work')
+// })
 
 app.get('/about',(req, res)=>{
     res.render('about')
